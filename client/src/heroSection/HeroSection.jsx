@@ -4,7 +4,6 @@ import RobotAnimations from "../assets/Robot Futuristic Ai animated.json";
 import bgImage from "../assets/backgroundimg.jpg";
 import { useNavigate } from "react-router-dom";
 
-
 export default function HeroSection() {
   const words = [
     "your future",
@@ -17,6 +16,29 @@ export default function HeroSection() {
   const navigate = useNavigate();
   const [index, setIndex] = useState(0);
   const [fade, setFade] = useState(true);
+
+  // ✅ AUTH STATE FROM LOCAL STORAGE
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+
+  // ✅ CHECK LOGIN STATUS ON LOAD
+  useEffect(() => {
+    const token = localStorage.getItem("authToken");
+    const userId = localStorage.getItem("userId");
+
+    if (token && userId) {
+      setIsLoggedIn(true);
+    } else {
+      setIsLoggedIn(false);
+    }
+  }, []);
+
+  // ✅ LOGOUT FUNCTION
+  const handleLogout = () => {
+    localStorage.removeItem("token");
+    localStorage.removeItem("userId");
+    setIsLoggedIn(false);
+    navigate("/signin");
+  };
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -53,17 +75,28 @@ export default function HeroSection() {
               </div>
             ))}
 
-            <button className="ml-4 px-4 py-2 bg-blue-500 text-white rounded-full shadow-md hover:bg-blue-600 transition-all cursor-pointer"
-            onClick={()=>{
-              navigate('/signin')
-            }}
-            >
-              Log In
-            </button>
+            {/* ✅ LOGIN / LOGOUT TOGGLE */}
+            {!isLoggedIn ? (
+              <button
+                className="ml-4 px-4 py-2 bg-blue-500 text-white rounded-full shadow-md hover:bg-blue-600 transition-all cursor-pointer"
+                onClick={() => {
+                  navigate("/signin");
+                }}
+              >
+                Log In
+              </button>
+            ) : (
+              <button
+                className="ml-4 px-4 py-2 bg-blue-500 text-white rounded-full shadow-md hover:bg-red-200   transition-all cursor-pointer"
+                onClick={handleLogout}
+              >
+                Log Out
+              </button>
+            )}
           </div>
         </nav>
 
-        
+        {/* 🌟 HERO CONTENT */}
         <div className="mt-40 max-w-3xl flex flex-col items-center px-6">
           <h1 className="text-5xl md:text-6xl font-extrabold text-gray-900 animate-fade-in">
             ClipSage watches videos for{" "}
