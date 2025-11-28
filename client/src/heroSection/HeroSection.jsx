@@ -63,7 +63,7 @@ export default function HeroSection() {
           </div>
         </nav>
 
-        {/* 🌟 HERO CONTENT */}
+        
         <div className="mt-40 max-w-3xl flex flex-col items-center px-6">
           <h1 className="text-5xl md:text-6xl font-extrabold text-gray-900 animate-fade-in">
             ClipSage watches videos for{" "}
