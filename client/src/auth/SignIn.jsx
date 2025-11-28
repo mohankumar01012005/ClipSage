@@ -11,7 +11,7 @@ export default function SignIn() {
   const [error, setError] = useState("")
   const [loading, setLoading] = useState(false)
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault()
     setError("")
     setLoading(true)
@@ -28,10 +28,34 @@ export default function SignIn() {
       return
     }
 
-    setTimeout(() => {
+    try {
+      const response = await fetch("http://localhost:5005/api/auth/login", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ email, password }),
+      })
+
+      const data = await response.json()
+
+      if (!response.ok) {
+        setError(data.message || "Login failed. Please try again.")
+        setLoading(false)
+        return
+      }
+
+      // Store token if provided
+      if (data.token) {
+        localStorage.setItem("authToken", data.token)
+      }
+
       setLoading(false)
-      navigate("/")
-    }, 800)
+      navigate("/occpationmodal")
+    } catch (err) {
+      setError("Network error. Please check your connection.")
+      setLoading(false)
+    }
   }
 
   return (
