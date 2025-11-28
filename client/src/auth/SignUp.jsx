@@ -7,7 +7,7 @@ import { Mail, Lock, User, Check, ArrowRight } from "lucide-react"
 export default function SignUp() {
   const navigate = useNavigate()
   const [formData, setFormData] = useState({
-    fullName: "",
+    username: "",
     email: "",
     password: "",
     confirmPassword: "",
@@ -24,13 +24,13 @@ export default function SignUp() {
     }))
   }
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault()
     setError("")
     setLoading(true)
 
     // Validation
-    if (!formData.fullName || !formData.email || !formData.password || !formData.confirmPassword) {
+    if (!formData.username || !formData.email || !formData.password || !formData.confirmPassword) {
       setError("Please fill in all fields")
       setLoading(false)
       return
@@ -60,10 +60,38 @@ export default function SignUp() {
       return
     }
 
-    setTimeout(() => {
+    try {
+      const response = await fetch("http://localhost:5005/api/auth/register", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          username: formData.username,
+          email: formData.email,
+          password: formData.password,
+        }),
+      })
+
+      const data = await response.json()
+
+      if (!response.ok) {
+        setError(data.message || "Registration failed. Please try again.")
+        setLoading(false)
+        return
+      }
+
+      // Store token if provided
+      if (data.token) {
+        localStorage.setItem("authToken", data.token)
+      }
+
       setLoading(false)
-      navigate("/")
-    }, 800)
+      navigate("/occpationmodal")
+    } catch (err) {
+      setError("Network error. Please check your connection.")
+      setLoading(false)
+    }
   }
 
   return (
@@ -88,16 +116,16 @@ export default function SignUp() {
           <form onSubmit={handleSubmit} className="space-y-5">
             {/* Full Name Field */}
             <div>
-              <label htmlFor="fullName" className="block text-sm font-semibold text-slate-700 mb-2">
+              <label htmlFor="username" className="block text-sm font-semibold text-slate-700 mb-2">
                 Full Name
               </label>
               <div className="relative">
                 <User className="absolute left-3 top-3.5 text-blue-400" size={20} />
                 <input
-                  id="fullName"
+                  id="username"
                   type="text"
-                  name="fullName"
-                  value={formData.fullName}
+                  name="username"
+                  value={formData.username}
                   onChange={handleChange}
                   placeholder="John Doe"
                   className="w-full pl-10 pr-4 py-3 bg-blue-50 border border-blue-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent transition"

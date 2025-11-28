@@ -1,0 +1,46 @@
+{
+  "hash": "093c23fd",
+  "configHash": "32cbab3e",
+  "lockfileHash": "f8634f48",
+  "browserHash": "b58a96c1",
+  "optimized": {
+    "react": {
+      "src": "../../node_modules/react/index.js",
+      "file": "react.js",
+      "fileHash": "10a5221b",
+      "needsInterop": true
+    },
+    "react-dom/client": {
+      "src": "../../node_modules/react-dom/client.js",
+      "file": "react-dom_client.js",
+      "fileHash": "2548b750",
+      "needsInterop": true
+    },
+    "react-router-dom": {
+      "src": "../../node_modules/react-router-dom/dist/index.mjs",
+      "file": "react-router-dom.js",
+      "fileHash": "f573747b",
+      "needsInterop": false
+    },
+    "lottie-react": {
+      "src": "../../node_modules/lottie-react/build/index.es.js",
+      "file": "lottie-react.js",
+      "fileHash": "6f627641",
+      "needsInterop": false
+    },
+    "lucide-react": {
+      "src": "../../node_modules/lucide-react/dist/esm/lucide-react.js",
+      "file": "lucide-react.js",
+      "fileHash": "d1343680",
+      "needsInterop": false
+    }
+  },
+  "chunks": {
+    "chunk-QXIHWFZ6": {
+      "file": "chunk-QXIHWFZ6.js"
+    },
+    "chunk-2T7O2LGO": {
+      "file": "chunk-2T7O2LGO.js"
+    }
+  }
+}
