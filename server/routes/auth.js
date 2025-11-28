@@ -94,7 +94,7 @@ router.post("/login", async (req, res) => {
   }
 });
 
-router.put('/users/:userId/:token/occupation', async (req, res) => {
+router.put('/users/:userId/occupation', async (req, res) => {
   try {
     const { userId } = req.params;
     const { occupation, details } = req.body;
