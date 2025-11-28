@@ -80,10 +80,11 @@ export default function SignUp() {
         setLoading(false)
         return
       }
-
+      console.log("This is the data ",data)
       // Store token if provided
       if (data.token) {
         localStorage.setItem("authToken", data.token)
+        localStorage.setItem("userId", data.user.id)
       }
 
       setLoading(false)
