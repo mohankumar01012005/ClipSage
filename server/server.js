@@ -5,6 +5,7 @@ import dotenv from "dotenv";
 import connectDB from "./dbconnection/dbconnection.js"; // keep your existing DB connection
 import { YoutubeTranscript } from "@danielxceron/youtube-transcript";
 import { GoogleGenAI } from "@google/genai";
+import authRoutes from "./routes/auth.js";
 
 dotenv.config();
 
@@ -128,6 +129,9 @@ app.post("/summarize", async (req, res) => {
     return res.status(500).json({ error: "Server error", detail: String(err.message ?? err) });
   }
 });
+
+// Auth routes
+app.use("/api/auth", authRoutes);
 
 app.get("/", (req, res) => {
   res.send("Server is running.");
