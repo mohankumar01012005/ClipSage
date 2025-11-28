@@ -3,7 +3,7 @@
 import { useState } from "react"
 import { useNavigate } from "react-router-dom"
 import { Briefcase, ArrowRight } from "lucide-react"
-
+import axios from "axios"
 export default function OccupationModal() {
   const navigate = useNavigate()
   const [occupation, setOccupation] = useState("")
@@ -13,7 +13,30 @@ export default function OccupationModal() {
 
   const occupationOptions = ["Student", "Graduate", "Employee", "Other"]
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async(e) => {
+    try {
+      const userId = localStorage.getItem("userId");
+      const token = localStorage.getItem("token");
+      const response = await axios.put(`http://localhost:5005/api/auth/users/${userId}/${token}/occupation`, {
+        body: JSON.stringify({
+          occupation: occupation,
+        }),
+      })
+
+      const data = response.data;
+
+      if (!response.ok) {
+        setError(data.message || "Registration failed. Please try again.")
+        setLoading(false)
+        return
+      }
+      console.log("This is the data ",data)
+      setLoading(false)
+      navigate("/")
+    } catch (err) {
+      setError("Network error. Please check your connection.")
+      setLoading(false)
+    }
     e.preventDefault()
     setError("")
 
