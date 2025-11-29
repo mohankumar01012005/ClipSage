@@ -49,6 +49,10 @@ export default function SignIn() {
       if (data.token) {
         localStorage.setItem("authToken", data.token)
       }
+      if (data.token) {
+        localStorage.setItem("authToken", data.token)
+        localStorage.setItem("userId", data.user.id)
+      }
 
       setLoading(false)
       navigate("/dashboard")
