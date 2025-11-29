@@ -60,7 +60,7 @@ const FormattedSummary = ({ summary }) => {
   )
 }
 
-export default function SummaryAssistance() {
+export default function SummaryAssistance({ selectedChat, onNewChat, onClearSelectedChat }) {
   const [messages, setMessages] = useState([
     {
       id: 1,
@@ -78,6 +78,50 @@ export default function SummaryAssistance() {
   }
 
   useEffect(scrollToBottom, [messages])
+
+  // Effect to load selected chat when it changes
+  useEffect(() => {
+    if (selectedChat) {
+      console.log("📝 Loading selected chat:", selectedChat)
+      
+      // Create initial assistant message with the video summary
+      const initialMessages = [
+        {
+          id: 1,
+          type: "assistant",
+          text: `I've loaded the summary for "${selectedChat.title}". You can ask me questions about this video!`,
+          rawData: {
+            title: selectedChat.title,
+            summary: selectedChat.summary
+          }
+        }
+      ]
+
+      // Add existing chat messages if any
+      if (selectedChat.messages && selectedChat.messages.length > 0) {
+        selectedChat.messages.forEach((msg, index) => {
+          initialMessages.push({
+            id: index + 2,
+            type: msg.role === "user" ? "user" : "assistant",
+            text: msg.content,
+            timestamp: msg.timestamp
+          })
+        })
+      }
+
+      setMessages(initialMessages)
+      setInputValue("")
+    } else {
+      // Reset to initial state when no chat is selected
+      setMessages([
+        {
+          id: 1,
+          type: "assistant",
+          text: "Hello! I'm your AI assistant. You can paste a URL or ask me anything. How can I help you today?",
+        },
+      ])
+    }
+  }, [selectedChat])
 
   const handleSendMessage = async (e) => {
     e.preventDefault()
@@ -109,49 +153,91 @@ export default function SummaryAssistance() {
     setIsLoading(true)
 
     try {
-      console.log("📨 Sending request to summarize URL:", inputValue)
-      console.log("👤 User ID:", userId)
+      if (selectedChat) {
+        // Existing chat - use chat endpoint
+        console.log("💬 Sending message to existing chat:", selectedChat._id)
+        
+        const res = await fetch(`http://localhost:5005/api/video/chat/${userId}/${selectedChat._id}`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            userMessage: inputValue,
+          }),
+        })
 
-      const res = await fetch(`http://localhost:5005/api/video/summarize/${userId}`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          youtubeUrl: inputValue,
-        }),
-      })
+        if (!res.ok) {
+          throw new Error(`HTTP error! status: ${res.status}`)
+        }
 
-      if (!res.ok) {
-        throw new Error(`HTTP error! status: ${res.status}`)
-      }
+        const data = await res.json()
+        console.log("✅ Chat Response:", data)
 
-      const data = await res.json()
-      console.log("✅ AI Summary Response:", data)
+        const aiMessage = {
+          id: messages.length + 2,
+          type: "assistant",
+          text: data.botMessage.content,
+        }
 
-      // Extract title and summary from the response
-      const videoTitle = data.video?.title || "Untitled Video"
-      const summary = data.summary || "No summary available"
+        setMessages((prev) => [...prev, aiMessage])
+        
+        // Refresh chat list to update last message time
+        if (onNewChat) {
+          setTimeout(() => onNewChat(), 500)
+        }
+      } else {
+        // New chat - summarize URL
+        console.log("📨 Sending request to summarize URL:", inputValue)
 
-      const aiMessage = {
-        id: messages.length + 2,
-        type: "assistant",
-        text: `🎬 **${videoTitle}**\n\n${summary}`,
-        rawData: {
-          title: videoTitle,
-          summary: summary
+        const res = await fetch(`http://localhost:5005/api/video/summarize/${userId}`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            youtubeUrl: inputValue,
+          }),
+        })
+
+        if (!res.ok) {
+          throw new Error(`HTTP error! status: ${res.status}`)
+        }
+
+        const data = await res.json()
+        console.log("✅ AI Summary Response:", data)
+
+        // Extract title and summary from the response
+        const videoTitle = data.video?.title || "Untitled Video"
+        const summary = data.summary || "No summary available"
+
+        const aiMessage = {
+          id: messages.length + 2,
+          type: "assistant",
+          text: `🎬 **${videoTitle}**\n\n${summary}`,
+          rawData: {
+            title: videoTitle,
+            summary: summary
+          }
+        }
+
+        setMessages((prev) => [...prev, aiMessage])
+        
+        // Refresh chat list to show new chat
+        if (onNewChat) {
+          setTimeout(() => onNewChat(), 500)
         }
       }
-
-      setMessages((prev) => [...prev, aiMessage])
     } catch (error) {
-      console.error("❌ Error generating summary:", error)
+      console.error("❌ Error:", error)
       setMessages((prev) => [
         ...prev,
         {
           id: prev.length + 2,
           type: "assistant",
-          text: "❌ Failed to generate summary. Please check the URL and try again.",
+          text: selectedChat 
+            ? "❌ Failed to send message. Please try again." 
+            : "❌ Failed to generate summary. Please check the URL and try again.",
         },
       ])
     } finally {
@@ -159,8 +245,35 @@ export default function SummaryAssistance() {
     }
   }
 
+  const handleNewChat = () => {
+    if (onClearSelectedChat) {
+      onClearSelectedChat()
+    }
+  }
+
   return (
     <div className="flex flex-col h-full">
+      {/* Header with chat title for selected chats */}
+      {selectedChat && (
+        <div className="border-b border-gray-200 px-6 py-3 bg-blue-50">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+              <h2 className="text-sm font-medium text-gray-800">{selectedChat.title}</h2>
+              <span className="text-xs text-gray-500 bg-white px-2 py-1 rounded border">
+                {selectedChat.messages?.length || 0} messages
+              </span>
+            </div>
+            <button
+              onClick={handleNewChat}
+              className="text-sm text-blue-600 hover:text-blue-800 font-medium"
+            >
+              New Chat
+            </button>
+          </div>
+        </div>
+      )}
+
       <div className="flex-1 overflow-y-auto px-6 py-6 space-y-6">
         {messages.map((message) => (
           <div key={message.id} className={`flex ${message.type === "user" ? "justify-end" : "justify-start"}`}>
@@ -214,7 +327,7 @@ export default function SummaryAssistance() {
             type="text"
             value={inputValue}
             onChange={(e) => setInputValue(e.target.value)}
-            placeholder="Paste YouTube link here..."
+            placeholder={selectedChat ? "Ask a question about this video..." : "Paste YouTube link here..."}
             className="flex-1 px-4 py-3 border border-gray-300 rounded-full focus:outline-none focus:ring-2 focus:ring-blue-200 focus:border-transparent"
           />
           <button
