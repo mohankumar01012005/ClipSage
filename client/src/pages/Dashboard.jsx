@@ -298,12 +298,12 @@ export default function Dashboard() {
         </div>
 
         {/* ✅ PROFILE */}
-        <div className="p-4 border-t border-blue-100 bg-white bg-opacity-50">
+        <div className="p-4 border-t border-blue-100 bg-white bg-opacity-50 cursor-pointer" onClick={()=>{navigate("/profile")}}>
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center text-white font-bold text-sm">
               {user.name?.charAt(0)?.toUpperCase()}
             </div>
-            <div className="flex-1 min-w-0">
+            <div className="flex-1 min-w-0" >
               <p className="text-sm font-medium text-gray-800">{user.name}</p>
               <p className="text-xs text-gray-500">{user.email}</p>
             </div>
