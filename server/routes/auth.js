@@ -22,11 +22,9 @@ router.post("/register", async (req, res) => {
     const normalizedEmail = email.toLowerCase().trim();
 
     // Check if email or username already exists
-    const exists = await User.findOne({
-      $or: [{ email: normalizedEmail }]
-    });
+    const exists = await User.findOne({ email: normalizedEmail });
     if (exists) {
-      return res.status(409).json({ message: "username or email already exists" });
+      return res.status(409).json({ message: "Email already exists" });
     }
 
     // Hash password
@@ -93,6 +91,33 @@ router.post("/login", async (req, res) => {
     return res.status(500).json({ message: "Server error" });
   }
 });
+// GET USER BY ID
+router.get("/getUser/:userId", async (req, res) => {
+  try {
+    const { userId } = req.params;
+
+    // Validate ID format (prevent crash)
+    if (!userId || userId.length !== 24)
+      return res.status(400).json({ error: "Invalid userId format" });
+
+    // Fetch user (exclude passwordHash)
+    const user = await User.findById(userId).select("-passwordHash");
+
+    if (!user) 
+      return res.status(404).json({ error: "User not found" });
+
+    return res.json({
+      message: "User fetched successfully",
+      user
+    });
+
+  } catch (err) {
+    console.error("Get User Error →", err);
+    return res.status(500).json({ error: err.message || "Server error" });
+  }
+});
+
+
 
 router.put('/users/:userId/occupation', async (req, res) => {
   try {

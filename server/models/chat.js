@@ -7,21 +7,17 @@ export const MessageSchema = new mongoose.Schema({
 }, { _id: false });
 
 
-const PromptFlowSchema = new mongoose.Schema({
-  name: { type: String },           
-  steps: [{ type: String }]
-}, { _id: false });
+const ChatThreadSchema = new mongoose.Schema(
+  {
+    video: { type: String, required: true },
+    title:{type:String, required:true},
+    summary: { type: String },  
+    futureIntegretion: { type: mongoose.Schema.Types.Mixed, default: {} },               
+    messages: { type: [MessageSchema], default: [] },
+    generatedPrompt: { type: String },
+    lastMessageAt: { type: Date, default: Date.now }
+  },
+  { timestamps: true }
+);
 
-const ChatThreadSchema = new mongoose.Schema({
-  user: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true, index: true },
-  video: { type: mongoose.Schema.Types.ObjectId, ref: "Video", required: true, index: true },
-  summary: { type: String },
-  messages: { type: [MessageSchema], default: [] },
-  generatedPrompt: { type: String },
-  promptFlows: { type: [PromptFlowSchema], default: [] },
-  isPinned: { type: Boolean, default: false },
-  lastMessageAt: { type: Date, default: Date.now }
-}, { timestamps: true });
-
-
-export default mongoose.model("ChatThread", ChatThreadSchema);
+export default ChatThreadSchema;
