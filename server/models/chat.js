@@ -11,10 +11,8 @@ const ChatThreadSchema = new mongoose.Schema(
   {
     video: { type: String, required: true },
     title:{type:String, required:true},
-    summary: { type: String },  
-    futureIntegretion: { type: mongoose.Schema.Types.Mixed, default: {} },               
+    summary: { type: String },        
     messages: { type: [MessageSchema], default: [] },
-    generatedPrompt: { type: String },
     lastMessageAt: { type: Date, default: Date.now }
   },
   { timestamps: true }

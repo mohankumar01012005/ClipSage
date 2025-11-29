@@ -25,7 +25,7 @@ function extractVideoId(urlOrId) {
     const obj = new URL(urlOrId);
     const v = obj.searchParams.get("v");
     if (v) return v;
-  } catch {}
+  } catch { }
   return null;
 }
 
@@ -39,14 +39,14 @@ async function fetchTranscriptText(videoId) {
 
   const parts = await YoutubeTranscript.fetchTranscript(videoId);
   if (!Array.isArray(parts)) throw new Error("No transcript parts returned");
-  
+
   const transcript = parts.map((p) => (p && p.text ? p.text.trim() : "")).filter(Boolean).join(" ");
-  
+
   cache.set(cacheKey, {
     data: transcript,
     timestamp: Date.now()
   });
-  
+
   return transcript;
 }
 
@@ -68,6 +68,29 @@ Explain all important concepts covered in the video in bullet format.
 ### 4. TL;DR (1 sentence)
 Short and crisp.
 
+### 5. Future Integration Plan
+
+#### Content Type
+[Specify the content type: educational/technical, motivational, personal growth, productivity, interview-prep, career-skills, domain-theory]
+
+#### Role-Based Advice
+[Provide concrete actionable steps for different roles like Junior Developer, Student, etc.]
+
+#### Exam Preparation (if the topic is related to education)
+[How to study/apply this content for exams]
+if this topic has 
+#### Interview Preparation  
+[How to use these ideas to prepare answers or demonstrate skill]
+
+#### Daily Routine Integration
+[Micro-habits or practices to integrate this content daily]
+
+#### Projects & Practice
+[Project ideas or practice tasks to apply the content]
+
+#### One-Sentence Pitch
+[One sentence telling why this matters to the user's future]
+
 ---
 Video Title: ${title || "Not available"}
 Video URL: ${url}
@@ -78,10 +101,10 @@ ${transcript}
 }
 
 function buildTitlePrompt(transcript) {
-  const shortTranscript = transcript.length > 2000 
-    ? transcript.substring(0, 1500) + "...[truncated]" 
+  const shortTranscript = transcript.length > 2000
+    ? transcript.substring(0, 1500) + "...[truncated]"
     : transcript;
-    
+
   return `
 You are an assistant that generates a short (2-6 words), descriptive, and clean video title based ONLY on the transcript below.
 Return only the title on a single line, without extra commentary.
@@ -91,35 +114,10 @@ ${shortTranscript}
 `;
 }
 
-function buildFutureIntegrationPrompt({ transcript, detectedTitle }) {
-  const shortTranscript = transcript.length > 3000 
-    ? transcript.substring(0, 2500) + "...[truncated for efficiency]" 
-    : transcript;
-    
-  return `
-You are an expert coach and learning-designer. Based ONLY on the transcript below (and the generated title "${detectedTitle}"), determine the content type and produce a "futureIntegration" plan.
-
-The output must be JSON with these exact fields:
-{
-  "contentType": "<one-line category>",
-  "roleAdvice": { "<role>": ["concrete short actionable step 1", "..."] , ... },
-  "exams": ["how to study/apply this for exams"],
-  "interviews": ["how to use the ideas to prepare answers or demonstrate skill"],
-  "dailyRoutine": ["micro-habits or practices to integrate this content daily"],
-  "projectsAndPractice": ["project ideas or practice tasks to apply the content"],
-  "oneSentencePitch": "<one sentence telling why this matters to the user's future>"
-}
-
-Be concise; keep each list to 3–6 items. Use plain text values.
-Transcript:
-${shortTranscript}
-`;
-}
-
 /* ---------------- Gemini helper with Timeout ---------------- */
 async function summarizeWithGemini(prompt, opts = {}) {
   const { model = "gemini-2.0-flash", timeout = 30000 } = opts;
-  
+
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), timeout);
 
@@ -151,186 +149,10 @@ async function summarizeWithGemini(prompt, opts = {}) {
   }
 }
 
-/* ---------------- Parallel Processing Helper ---------------- */
-async function processInParallel(tasks, maxConcurrent = 2) {
-  const results = [];
-  const executing = [];
-  
-  for (const task of tasks) {
-    const p = Promise.resolve().then(() => task());
-    results.push(p);
-    
-    const e = p.then(() => executing.splice(executing.indexOf(e), 1));
-    executing.push(e);
-    
-    if (executing.length >= maxConcurrent) {
-      await Promise.race(executing);
-    }
-  }
-  
-  return Promise.all(results);
-}
-
-/* ---------------- Generate Chat Prompt ---------------- */
-function buildChatPrompt(chatTitle, summary, futureIntegration, userQuestion) {
-  return `
-You are an AI learning assistant helping a student understand the video: "${chatTitle}"
-
-VIDEO SUMMARY:
-${summary}
-
-FUTURE INTEGRATION PLAN:
-${JSON.stringify(futureIntegration, null, 2)}
-
-STUDENT'S QUESTION: ${userQuestion}
-
-Instructions:
-- Answer based ONLY on the video content provided above
-- Be concise and educational (2-4 paragraphs max)
-- Focus on practical applications and key insights
-- If the question is outside the video scope, politely redirect to the video content
-- Use simple, clear language suitable for students
-
-Answer:
-`;
-}
-
-/* ---------------- Generate Ready-to-Use Prompt ---------------- */
-function generateReadyToUsePrompt(chatTitle, summary, futureIntegration) {
-  return `
-# AI Learning Assistant Prompt for: "${chatTitle}"
-
-## CONTEXT:
-You are an expert AI learning assistant specialized in helping students understand and apply knowledge from educational videos. Use the following video content to answer student questions.
-
-## VIDEO CONTENT:
-
-### SUMMARY:
-${summary}
-
-### FUTURE INTEGRATION PLAN:
-${JSON.stringify(futureIntegration, null, 2)}
-
-## INSTRUCTIONS FOR AI:
-
-1. **Answer Scope**: Only use information from the video content provided above
-2. **Response Style**: 
-   - Be concise and educational (2-4 paragraphs maximum)
-   - Use simple, clear language suitable for students
-   - Focus on practical applications and key insights
-   - Provide actionable advice when possible
-
-3. **When Question is Outside Scope**:
-   - Politely explain that the question is outside the video content
-   - Suggest relevant aspects from the video that might help
-   - Do not invent or hallucinate information
-
-4. **Learning Focus**:
-   - Emphasize understanding over memorization
-   - Connect concepts to real-world applications
-   - Suggest practice exercises when relevant
-   - Relate to the future integration plan provided
-
-## EXAMPLE RESPONSES:
-
-**Good**: "Based on the video, React components work by... The key insight mentioned was... For practice, you could try..."
-
-**When Outside Scope**: "The video focuses on React fundamentals and doesn't cover advanced state management. However, from the video you learned about... which might help you understand the basics before moving to advanced topics."
-
-**Always maintain**: Professional, educational, and helpful tone while staying strictly within the video content.
-`;
-}
-
-// ... [Keep all the previous routes: summarize, chat, get-chat, get-chats] ...
-
-/* ---------------- Generate Ready-to-Paste Prompt ---------------- */
-router.get("/generate-prompt/:userId/:chatId", async (req, res) => {
-  try {
-    const userId = req.params.userId;
-    const chatId = req.params.chatId;
-
-    // Find user and specific chat
-    const userDoc = await User.findById(userId);
-    if (!userDoc) {
-      return res.status(404).json({ error: "User not found" });
-    }
-
-    const chat = userDoc.userChats.id(chatId);
-    if (!chat) {
-      return res.status(404).json({ error: "Chat not found" });
-    }
-
-    // Generate the ready-to-use prompt
-    const readyToUsePrompt = generateReadyToUsePrompt(
-      chat.title,
-      chat.summary,
-      chat.futureIntegretion
-    );
-
-    // Update the chat with the generated prompt
-    chat.generatedPrompt = readyToUsePrompt;
-    await userDoc.save();
-
-    return res.json({
-      message: "Prompt generated successfully",
-      chatId: chatId,
-      title: chat.title,
-      generatedPrompt: readyToUsePrompt,
-      promptLength: readyToUsePrompt.length
-    });
-
-  } catch (err) {
-    console.error("Generate Prompt Error →", err);
-    return res.status(500).json({ error: String(err?.message || err) });
-  }
-});
-
-/* ---------------- Get Generated Prompt ---------------- */
-router.get("/prompt/:userId/:chatId", async (req, res) => {
-  try {
-    const userId = req.params.userId;
-    const chatId = req.params.chatId;
-
-    const userDoc = await User.findById(userId);
-    if (!userDoc) {
-      return res.status(404).json({ error: "User not found" });
-    }
-
-    const chat = userDoc.userChats.id(chatId);
-    if (!chat) {
-      return res.status(404).json({ error: "Chat not found" });
-    }
-
-    if (!chat.generatedPrompt) {
-      return res.status(404).json({ error: "No generated prompt found for this chat" });
-    }
-
-    return res.json({
-      chatId: chatId,
-      title: chat.title,
-      generatedPrompt: chat.generatedPrompt,
-      promptLength: chat.generatedPrompt.length,
-      lastUpdated: chat.updatedAt
-    });
-
-  } catch (err) {
-    console.error("Get Prompt Error →", err);
-    return res.status(500).json({ error: String(err?.message || err) });
-  }
-});
-
-/* ---------------- Auto-Generate Prompt on Summarize ---------------- */
-// This function is called automatically when a video is summarized
-function autoGeneratePrompt(title, summary, futureIntegration) {
-  return generateReadyToUsePrompt(title, summary, futureIntegration);
-}
-
-// ... [Rest of your existing routes remain the same] ...
-
-/* ---------------- Optimized Route (Updated with Auto Prompt Generation) ---------------- */
+/* ---------------- Optimized Route ---------------- */
 router.post("/summarize/:userId", async (req, res) => {
   req.setTimeout(60000);
-  
+
   try {
     const userId = req.params.userId;
     const { youtubeUrl, title = "" } = req.body ?? {};
@@ -352,7 +174,6 @@ router.post("/summarize/:userId", async (req, res) => {
         chat: cachedSummary.data.chatObj,
         transcript: "[cached]",
         summary: cachedSummary.data.summary,
-        futureIntegration: cachedSummary.data.futureIntegration,
         cached: true
       });
     }
@@ -376,11 +197,12 @@ router.post("/summarize/:userId", async (req, res) => {
       transcript = `${head}\n\n[...trimmed...]\n\n${tail}`;
     }
 
+    // 1) Generate title first
     let finalTitle = title && title.trim() ? title.trim() : null;
     if (!finalTitle) {
       try {
         const rawTitle = await summarizeWithGemini(
-          buildTitlePrompt(transcript), 
+          buildTitlePrompt(transcript),
           { model: "gemini-2.0-flash", timeout: 10000 }
         );
         finalTitle = String(rawTitle).split("\n")[0].trim() || "Untitled Video";
@@ -390,110 +212,44 @@ router.post("/summarize/:userId", async (req, res) => {
       }
     }
 
-    let summary, futureIntegration;
-    
+    // 2) Generate complete summary with future integration included
+    let completeSummary;
     try {
-      [summary, futureIntegration] = await processInParallel([
-        async () => {
-          const summaryPrompt = buildVideoSummaryPrompt({ 
-            url: youtubeUrl, 
-            title: finalTitle, 
-            transcript 
-          });
-          const result = await summarizeWithGemini(summaryPrompt, { timeout: 25000 });
-          return result;
-        },
-        async () => {
-          try {
-            const futurePrompt = buildFutureIntegrationPrompt({ 
-              transcript, 
-              detectedTitle: finalTitle 
-            });
-            const futureRaw = await summarizeWithGemini(futurePrompt, { timeout: 20000 });
-
-            let parsed = null;
-            try {
-              parsed = typeof futureRaw === "string" ? JSON.parse(futureRaw) : futureRaw;
-            } catch (jsonErr) {
-              const jsonStart = futureRaw.indexOf("{");
-              const jsonEnd = futureRaw.lastIndexOf("}");
-              if (jsonStart !== -1 && jsonEnd !== -1 && jsonEnd > jsonStart) {
-                const maybe = futureRaw.slice(jsonStart, jsonEnd + 1);
-                try {
-                  parsed = JSON.parse(maybe);
-                } catch (e) {
-                  parsed = null;
-                }
-              }
-            }
-
-            if (!parsed) {
-              return {
-                contentType: "unknown",
-                roleAdvice: { default: ["Could not parse model JSON"] },
-                exams: ["See raw futureIntegration text"],
-                interviews: ["See raw futureIntegration text"],
-                dailyRoutine: ["See raw futureIntegration text"],
-                projectsAndPractice: ["See raw futureIntegration text"],
-                oneSentencePitch: String(futureRaw).slice(0, 200),
-                raw: String(futureRaw),
-              };
-            }
-
-            return {
-              contentType: parsed.contentType || "unspecified",
-              roleAdvice: parsed.roleAdvice || { default: ["No role-specific advice generated"] },
-              exams: parsed.exams || [],
-              interviews: parsed.interviews || [],
-              dailyRoutine: parsed.dailyRoutine || [],
-              projectsAndPractice: parsed.projectsAndPractice || [],
-              oneSentencePitch: parsed.oneSentencePitch || "",
-            };
-          } catch (err) {
-            console.error("Future integration generation failed:", err);
-            return {
-              contentType: "error",
-              roleAdvice: { default: ["Future integration generation failed"] },
-              exams: [],
-              interviews: [],
-              dailyRoutine: [],
-              projectsAndPractice: [],
-              oneSentencePitch: "Future integration unavailable due to generation error.",
-            };
-          }
-        }
-      ]);
-    } catch (parallelError) {
-      console.error("Parallel processing error:", parallelError);
-      return res.status(500).json({ error: "AI processing failed", detail: String(parallelError.message) });
+      const summaryPrompt = buildVideoSummaryPrompt({
+        url: youtubeUrl,
+        title: finalTitle,
+        transcript
+      });
+      completeSummary = await summarizeWithGemini(summaryPrompt, { timeout: 30000 });
+    } catch (err) {
+      console.error("Summary generation failed:", err);
+      return res.status(500).json({ error: "Failed to generate summary", detail: String(err.message) });
     }
 
-    // AUTO-GENERATE THE PROMPT HERE
-    const generatedPrompt = autoGeneratePrompt(finalTitle, summary, futureIntegration);
-
+    // Create chat object according to your exact schema
     const chatObj = {
       video: youtubeUrl,
       title: finalTitle,
-      summary,
-      futureIntegretion: futureIntegration,
-      messages: [],
-      generatedPrompt: generatedPrompt, // Store the auto-generated prompt
-      lastMessageAt: new Date(),
+      summary: completeSummary, // This includes everything: summary + future integration
+      messages: [], // Empty array as required
+      lastMessageAt: new Date()
     };
 
+    // Cache the result
     cache.set(cacheKey, {
       data: {
         finalTitle,
-        summary,
-        futureIntegration,
+        summary: completeSummary,
         chatObj
       },
       timestamp: Date.now()
     });
 
+    // Save to user
     userDoc.userChats = Array.isArray(userDoc.userChats) ? userDoc.userChats : [];
     userDoc.userChats.push(chatObj);
-    
+
+    // Save user (non-blocking)
     userDoc.save().catch(err => console.error("Background save error:", err));
 
     return res.json({
@@ -501,9 +257,7 @@ router.post("/summarize/:userId", async (req, res) => {
       video: { url: youtubeUrl, title: finalTitle },
       chat: chatObj,
       transcript: transcript.length > 500 ? "[truncated in response]" : transcript,
-      summary,
-      futureIntegration,
-      generatedPrompt: generatedPrompt, // Also return in response
+      summary: completeSummary,
       processingTime: "optimized"
     });
 
@@ -513,6 +267,68 @@ router.post("/summarize/:userId", async (req, res) => {
   }
 });
 
-// ... [Keep all the other existing routes: chat, get-chat, get-chats] ...
+/* ---------------- Get All User Chats ---------------- */
+router.get("/chats/:userId", async (req, res) => {
+  try {
+    const userId = req.params.userId;
+
+    const userDoc = await User.findById(userId).select("userChats");
+    if (!userDoc) {
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    const chats = userDoc.userChats.map(chat => ({
+      _id: chat._id,
+      title: chat.title,
+      video: chat.video,
+      summary: chat.summary,
+      messageCount: chat.messages.length,
+      lastMessageAt: chat.lastMessageAt,
+      createdAt: chat.createdAt
+    }));
+
+    return res.json({
+      chats: chats
+    });
+
+  } catch (err) {
+    console.error("Get Chats Error →", err);
+    return res.status(500).json({ error: String(err?.message || err) });
+  }
+});
+
+/* ---------------- Get Specific Chat ---------------- */
+router.get("/chat/:userId/:chatId", async (req, res) => {
+  try {
+    const userId = req.params.userId;
+    const chatId = req.params.chatId;
+
+    const userDoc = await User.findById(userId);
+    if (!userDoc) {
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    const chat = userDoc.userChats.id(chatId);
+    if (!chat) {
+      return res.status(404).json({ error: "Chat not found" });
+    }
+
+    return res.json({
+      chat: {
+        _id: chat._id,
+        title: chat.title,
+        video: chat.video,
+        summary: chat.summary,
+        messages: chat.messages,
+        lastMessageAt: chat.lastMessageAt,
+        createdAt: chat.createdAt
+      }
+    });
+
+  } catch (err) {
+    console.error("Get Chat Error →", err);
+    return res.status(500).json({ error: String(err?.message || err) });
+  }
+});
 
 export default router;
