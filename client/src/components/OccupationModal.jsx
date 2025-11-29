@@ -56,7 +56,7 @@ export default function OccupationModal() {
         // console.log("Occupation update response:", data);
 
         setLoading(false);
-        navigate("/");
+        navigate("/dashboard");
       } else {
         setLoading(false);
         setError(response.data?.message || "Occupation update failed. Please try again.");
