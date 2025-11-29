@@ -53,45 +53,28 @@ async function fetchTranscriptText(videoId) {
 /* ---------------- Build Prompts ---------------- */
 function buildVideoSummaryPrompt({ title, url, transcript }) {
   return `
-You are an expert AI educator. Summarize this YouTube video for an EdTech product that helps students learn faster.
-Generate STRICTLY in this format:
+You are an expert AI educator. Create a concise summary of this YouTube video for students.
+Generate ONLY 5-6 bullet points that capture the most important takeaways.
 
-### 1. Clean Summary (4–6 sentences)
-Explain the video in a simple, clear way.
+Return STRICTLY in this JSON format:
+{
+  "bulletPoints": [
+    "Bullet point 1",
+    "Bullet point 2", 
+    "Bullet point 3",
+    "Bullet point 4",
+    "Bullet point 5",
+    "Bullet point 6"
+  ]
+}
 
-### 2. Key Insights (5 bullet points)
-Direct takeaways a student should remember.
+IMPORTANT: 
+- Return ONLY valid JSON, no additional text
+- Create exactly 5-6 bullet points
+- Make each bullet point concise and actionable
+- Focus on the most important learning outcomes
+- No summaries, no concept breakdowns, no TLDR, no future plans - JUST bullet points
 
-### 3. Concept Breakdown
-Explain all important concepts covered in the video in bullet format.
-
-### 4. TL;DR (1 sentence)
-Short and crisp.
-
-### 5. Future Integration Plan
-
-#### Content Type
-[Specify the content type: educational/technical, motivational, personal growth, productivity, interview-prep, career-skills, domain-theory]
-
-#### Role-Based Advice
-[Provide concrete actionable steps for different roles like Junior Developer, Student, etc.]
-
-#### Exam Preparation
-[How to study/apply this content for exams]
-
-#### Interview Preparation  
-[How to use these ideas to prepare answers or demonstrate skill]
-
-#### Daily Routine Integration
-[Micro-habits or practices to integrate this content daily]
-
-#### Projects & Practice
-[Project ideas or practice tasks to apply the content]
-
-#### One-Sentence Pitch
-[One sentence telling why this matters to the user's future]
-
----
 Video Title: ${title || "Not available"}
 Video URL: ${url}
 
@@ -149,6 +132,40 @@ async function summarizeWithGemini(prompt, opts = {}) {
   }
 }
 
+/* ---------------- Parse JSON Response ---------------- */
+function parseSummaryResponse(responseText) {
+  try {
+    // Try to parse the response as JSON directly
+    return JSON.parse(responseText);
+  } catch (jsonErr) {
+    // If direct parsing fails, try to extract JSON from the response
+    try {
+      const jsonStart = responseText.indexOf('{');
+      const jsonEnd = responseText.lastIndexOf('}');
+      if (jsonStart !== -1 && jsonEnd !== -1 && jsonEnd > jsonStart) {
+        const jsonString = responseText.slice(jsonStart, jsonEnd + 1);
+        return JSON.parse(jsonString);
+      }
+    } catch (extractErr) {
+      console.error("JSON extraction failed:", extractErr);
+    }
+    
+    // If all parsing fails, return a structured error response
+    return {
+      bulletPoints: ["Unable to generate bullet points. Please try again."]
+    };
+  }
+}
+
+/* ---------------- Format Bullet Points for Display ---------------- */
+function formatBulletPointsForDisplay(parsedData) {
+  if (!parsedData || !parsedData.bulletPoints || !Array.isArray(parsedData.bulletPoints)) {
+    return "• Unable to generate summary\n• Please try again";
+  }
+
+  return parsedData.bulletPoints.map(point => `• ${point}`).join('\n');
+}
+
 /* ---------------- Optimized Route ---------------- */
 router.post("/summarize/:userId", async (req, res) => {
   req.setTimeout(60000);
@@ -174,6 +191,7 @@ router.post("/summarize/:userId", async (req, res) => {
         chat: cachedSummary.data.chatObj,
         transcript: "[cached]",
         summary: cachedSummary.data.summary,
+        bulletPoints: cachedSummary.data.bulletPoints,
         cached: true
       });
     }
@@ -212,25 +230,31 @@ router.post("/summarize/:userId", async (req, res) => {
       }
     }
 
-    // 2) Generate complete summary with future integration included
-    let completeSummary;
+    // 2) Generate bullet points
+    let aiResponse;
     try {
       const summaryPrompt = buildVideoSummaryPrompt({ 
         url: youtubeUrl, 
         title: finalTitle, 
         transcript 
       });
-      completeSummary = await summarizeWithGemini(summaryPrompt, { timeout: 30000 });
+      aiResponse = await summarizeWithGemini(summaryPrompt, { timeout: 30000 });
     } catch (err) {
       console.error("Summary generation failed:", err);
       return res.status(500).json({ error: "Failed to generate summary", detail: String(err.message) });
     }
 
+    // Parse the JSON response
+    const parsedData = parseSummaryResponse(aiResponse);
+    
+    // Format for display in the summary field
+    const formattedSummary = formatBulletPointsForDisplay(parsedData);
+
     // Create chat object according to your exact schema
     const chatObj = {
       video: youtubeUrl,
       title: finalTitle,
-      summary: completeSummary,
+      summary: formattedSummary, // This is just the bullet points
       messages: [],
       lastMessageAt: new Date()
     };
@@ -239,7 +263,8 @@ router.post("/summarize/:userId", async (req, res) => {
     cache.set(cacheKey, {
       data: {
         finalTitle,
-        summary: completeSummary,
+        summary: formattedSummary,
+        bulletPoints: parsedData.bulletPoints, // Store the raw bullet points array
         chatObj
       },
       timestamp: Date.now()
@@ -256,8 +281,9 @@ router.post("/summarize/:userId", async (req, res) => {
       message: "Video summarized successfully",
       video: { url: youtubeUrl, title: finalTitle },
       chat: chatObj,
+      bulletPoints: parsedData.bulletPoints, // Return the raw array for easy use
       transcript: transcript.length > 500 ? "[truncated in response]" : transcript,
-      summary: completeSummary,
+      summary: formattedSummary,
       processingTime: "optimized"
     });
 
@@ -266,6 +292,7 @@ router.post("/summarize/:userId", async (req, res) => {
     return res.status(500).json({ error: String(err?.message || err) });
   }
 });
+
 
 /* ---------------- Chat with AI about the Video ---------------- */
 router.post("/chat/:userId/:chatId", async (req, res) => {
