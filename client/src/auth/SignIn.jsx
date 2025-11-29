@@ -51,7 +51,7 @@ export default function SignIn() {
       }
 
       setLoading(false)
-      navigate("/occpationmodal")
+      navigate("/dashboard")
     } catch (err) {
       setError("Network error. Please check your connection.")
       setLoading(false)
