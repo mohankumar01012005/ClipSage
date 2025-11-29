@@ -1,16 +1,19 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { MessageCircle, Plus, Search, Menu, X } from "lucide-react"
+import { MessageCircle, Plus, Search, Menu, X, LogOut } from "lucide-react"
 import SummaryAssistance from "./SummaryAssistance"
 import FutureIntegration from "./FutureIntegration"
 import Chats from "./Chats"
 import PromptGenerator from "./PromptGenerator"
+import { useNavigate } from "react-router-dom"
+
 
 const TypingAnimation = ({ text, speed = 30 }) => {
   const [displayedText, setDisplayedText] = useState("")
   const [isComplete, setIsComplete] = useState(false)
 
+  const navigate = useNavigate()
   useEffect(() => {
     if (displayedText.length < text.length) {
       const timer = setTimeout(() => {
@@ -35,6 +38,8 @@ const TypingAnimation = ({ text, speed = 30 }) => {
 export default function Dashboard() {
   const [activeTab, setActiveTab] = useState("summary")
   const [sidebarOpen, setSidebarOpen] = useState(true)
+    const navigate = useNavigate()
+  
 
   const [chatHistory, setChatHistory] = useState([
     { id: 1, title: "Understanding React Hooks", date: "Today" },
@@ -87,6 +92,15 @@ export default function Dashboard() {
       { id: Date.now(), title: "New Chat", date: "Now" },
       ...prev,
     ])
+  }
+
+  const handleLogout = () => {
+    // Remove user data from localStorage
+    localStorage.removeItem("userId")
+    localStorage.removeItem("token")
+    
+    // Redirect to home page
+    navigate("/")
   }
 
   const filteredHistory = chatHistory.filter((chat) =>
@@ -172,15 +186,26 @@ export default function Dashboard() {
       <div className="flex-1 flex flex-col">
         <div className="bg-white border-b border-gray-200 px-6 py-4">
           <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-4">
+              <button
+                onClick={() => setSidebarOpen(!sidebarOpen)}
+                className="p-2 hover:bg-gray-100 rounded-lg transition-colors duration-150"
+              >
+                {sidebarOpen ? (
+                  <X size={20} className="text-gray-600" />
+                ) : (
+                  <Menu size={20} className="text-gray-600" />
+                )}
+              </button>
+            </div>
+            
+            {/* Logout Button */}
             <button
-              onClick={() => setSidebarOpen(!sidebarOpen)}
-              className="p-2 hover:bg-gray-100 rounded-lg transition-colors duration-150"
+              onClick={handleLogout}
+              className=" cursor-pointer flex items-center gap-2 px-4 py-2 text-sm font-medium text-red-600 hover:bg-red-50 rounded-lg transition-colors duration-150 border border-red-200 hover:border-red-300"
             >
-              {sidebarOpen ? (
-                <X size={20} className="text-gray-600" />
-              ) : (
-                <Menu size={20} className="text-gray-600" />
-              )}
+              <LogOut size={16} />
+              Logout
             </button>
           </div>
 
