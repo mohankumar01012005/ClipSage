@@ -25,7 +25,7 @@ function extractVideoId(urlOrId) {
     const obj = new URL(urlOrId);
     const v = obj.searchParams.get("v");
     if (v) return v;
-  } catch { }
+  } catch {}
   return null;
 }
 
@@ -39,14 +39,14 @@ async function fetchTranscriptText(videoId) {
 
   const parts = await YoutubeTranscript.fetchTranscript(videoId);
   if (!Array.isArray(parts)) throw new Error("No transcript parts returned");
-
+  
   const transcript = parts.map((p) => (p && p.text ? p.text.trim() : "")).filter(Boolean).join(" ");
-
+  
   cache.set(cacheKey, {
     data: transcript,
     timestamp: Date.now()
   });
-
+  
   return transcript;
 }
 
@@ -76,9 +76,9 @@ Short and crisp.
 #### Role-Based Advice
 [Provide concrete actionable steps for different roles like Junior Developer, Student, etc.]
 
-#### Exam Preparation (if the topic is related to education)
+#### Exam Preparation
 [How to study/apply this content for exams]
-if this topic has 
+
 #### Interview Preparation  
 [How to use these ideas to prepare answers or demonstrate skill]
 
@@ -101,10 +101,10 @@ ${transcript}
 }
 
 function buildTitlePrompt(transcript) {
-  const shortTranscript = transcript.length > 2000
-    ? transcript.substring(0, 1500) + "...[truncated]"
+  const shortTranscript = transcript.length > 2000 
+    ? transcript.substring(0, 1500) + "...[truncated]" 
     : transcript;
-
+    
   return `
 You are an assistant that generates a short (2-6 words), descriptive, and clean video title based ONLY on the transcript below.
 Return only the title on a single line, without extra commentary.
@@ -117,7 +117,7 @@ ${shortTranscript}
 /* ---------------- Gemini helper with Timeout ---------------- */
 async function summarizeWithGemini(prompt, opts = {}) {
   const { model = "gemini-2.0-flash", timeout = 30000 } = opts;
-
+  
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), timeout);
 
@@ -152,7 +152,7 @@ async function summarizeWithGemini(prompt, opts = {}) {
 /* ---------------- Optimized Route ---------------- */
 router.post("/summarize/:userId", async (req, res) => {
   req.setTimeout(60000);
-
+  
   try {
     const userId = req.params.userId;
     const { youtubeUrl, title = "" } = req.body ?? {};
@@ -202,7 +202,7 @@ router.post("/summarize/:userId", async (req, res) => {
     if (!finalTitle) {
       try {
         const rawTitle = await summarizeWithGemini(
-          buildTitlePrompt(transcript),
+          buildTitlePrompt(transcript), 
           { model: "gemini-2.0-flash", timeout: 10000 }
         );
         finalTitle = String(rawTitle).split("\n")[0].trim() || "Untitled Video";
@@ -215,10 +215,10 @@ router.post("/summarize/:userId", async (req, res) => {
     // 2) Generate complete summary with future integration included
     let completeSummary;
     try {
-      const summaryPrompt = buildVideoSummaryPrompt({
-        url: youtubeUrl,
-        title: finalTitle,
-        transcript
+      const summaryPrompt = buildVideoSummaryPrompt({ 
+        url: youtubeUrl, 
+        title: finalTitle, 
+        transcript 
       });
       completeSummary = await summarizeWithGemini(summaryPrompt, { timeout: 30000 });
     } catch (err) {
@@ -230,8 +230,8 @@ router.post("/summarize/:userId", async (req, res) => {
     const chatObj = {
       video: youtubeUrl,
       title: finalTitle,
-      summary: completeSummary, // This includes everything: summary + future integration
-      messages: [], // Empty array as required
+      summary: completeSummary,
+      messages: [],
       lastMessageAt: new Date()
     };
 
@@ -248,7 +248,7 @@ router.post("/summarize/:userId", async (req, res) => {
     // Save to user
     userDoc.userChats = Array.isArray(userDoc.userChats) ? userDoc.userChats : [];
     userDoc.userChats.push(chatObj);
-
+    
     // Save user (non-blocking)
     userDoc.save().catch(err => console.error("Background save error:", err));
 
@@ -263,6 +263,94 @@ router.post("/summarize/:userId", async (req, res) => {
 
   } catch (err) {
     console.error("Summarize Error →", err);
+    return res.status(500).json({ error: String(err?.message || err) });
+  }
+});
+
+/* ---------------- Chat with AI about the Video ---------------- */
+router.post("/chat/:userId/:chatId", async (req, res) => {
+  try {
+    const userId = req.params.userId;
+    const chatId = req.params.chatId;
+    const { userMessage } = req.body;
+
+    if (!userMessage || !userMessage.trim()) {
+      return res.status(400).json({ error: "Message is required" });
+    }
+
+    // Find user
+    const userDoc = await User.findById(userId);
+    if (!userDoc) {
+      return res.status(404).json({ message: "User Not Found" });
+    }
+
+    // Find the specific chat
+    const currentChat = userDoc.userChats.id(chatId);
+    if (!currentChat) {
+      return res.status(404).json({ message: "Chat Not Found" });
+    }
+
+    // Create user message object
+    const userRoleMessage = {
+      role: "user",
+      content: userMessage.trim(),
+      timestamp: new Date()
+    };
+
+    // Prepare prompt for AI using the chat summary
+    const chatPrompt = `
+You are an AI learning assistant helping a student understand the video: "${currentChat.title}"
+
+VIDEO CONTENT:
+${currentChat.summary}
+
+STUDENT'S QUESTION: ${userMessage}
+
+Instructions:
+- Answer based ONLY on the video content provided above
+- Be concise and educational (2-4 paragraphs max)
+- Focus on practical applications and key insights
+- If the question is outside the video scope, politely redirect to the video content
+- Use simple, clear language suitable for students
+
+Answer:
+`;
+
+    // Get AI response
+    let aiMessage;
+    try {
+      aiMessage = await summarizeWithGemini(chatPrompt, { timeout: 15000 });
+    } catch (err) {
+      console.error("AI Response Error:", err);
+      aiMessage = "I apologize, but I'm having trouble generating a response right now. Please try again later.";
+    }
+
+    // Create bot message object
+    const botRoleMessage = {
+      role: "bot",
+      content: aiMessage,
+      timestamp: new Date()
+    };
+
+    // Add messages to chat
+    currentChat.messages.push(userRoleMessage);
+    currentChat.messages.push(botRoleMessage);
+    
+    // Update last message timestamp
+    currentChat.lastMessageAt = new Date();
+
+    // Save the updated user document
+    await userDoc.save();
+
+    return res.json({
+      message: "Chat response generated successfully",
+      userMessage: userRoleMessage,
+      botMessage: botRoleMessage,
+      chatId: chatId
+    });
+
+  } catch (err) {
+    console.error("Chat Error →", err);
     return res.status(500).json({ error: String(err?.message || err) });
   }
 });
