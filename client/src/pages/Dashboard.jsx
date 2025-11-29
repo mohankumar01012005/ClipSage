@@ -25,7 +25,9 @@ const TypingAnimation = ({ text, speed = 30 }) => {
   return (
     <div>
       {displayedText}
-      {!isComplete && <span className="ml-1 inline-block w-2 h-5 bg-blue-600 animate-pulse"></span>}
+      {!isComplete && (
+        <span className="ml-1 inline-block w-2 h-5 bg-blue-600 animate-pulse"></span>
+      )}
     </div>
   )
 }
@@ -33,23 +35,67 @@ const TypingAnimation = ({ text, speed = 30 }) => {
 export default function Dashboard() {
   const [activeTab, setActiveTab] = useState("summary")
   const [sidebarOpen, setSidebarOpen] = useState(true)
+
   const [chatHistory, setChatHistory] = useState([
     { id: 1, title: "Understanding React Hooks", date: "Today" },
     { id: 2, title: "Web Development Best Practices", date: "Yesterday" },
     { id: 3, title: "AI and Machine Learning Basics", date: "2 days ago" },
     { id: 4, title: "Database Design Patterns", date: "1 week ago" },
   ])
+
   const [searchQuery, setSearchQuery] = useState("")
 
+  // ✅ USER STATE
+  const [user, setUser] = useState({
+    name: "Loading...",
+    email: "Loading...",
+  })
+
+  // ✅ FETCH USER DATA FROM API (FIXED)
+  useEffect(() => {
+    const userId = localStorage.getItem("userId")
+
+    if (!userId) {
+      console.warn("User ID not found in localStorage")
+      return
+    }
+
+    const fetchUser = async () => {
+      try {
+        const res = await fetch(
+          `http://localhost:5005/api/auth/getUser/${userId}`
+        )
+        const data = await res.json()
+
+        console.log("✅ Fetched User Data:", data)
+
+        // ✅ CORRECT DATA MAPPING
+        setUser({
+          name: data?.user?.username || "User",
+          email: data?.user?.email || "No Email",
+        })
+      } catch (error) {
+        console.error("❌ Error fetching user:", error)
+      }
+    }
+
+    fetchUser()
+  }, [])
+
   const handleNewChat = () => {
-    setChatHistory((prev) => [{ id: Date.now(), title: "New Chat", date: "Now" }, ...prev])
+    setChatHistory((prev) => [
+      { id: Date.now(), title: "New Chat", date: "Now" },
+      ...prev,
+    ])
   }
 
-  const filteredHistory = chatHistory.filter((chat) => chat.title.toLowerCase().includes(searchQuery.toLowerCase()))
+  const filteredHistory = chatHistory.filter((chat) =>
+    chat.title.toLowerCase().includes(searchQuery.toLowerCase())
+  )
 
   const tabs = [
     { id: "summary", label: "Summary" },
-    { id: "future", label: "Future Integration" },
+    // { id: "future", label: "Future Integration" },
     { id: "chats", label: "Chats" },
     { id: "prompt", label: "Prompt Generator" },
   ]
@@ -93,9 +139,14 @@ export default function Dashboard() {
               className="p-3 rounded-lg hover:bg-blue-100 cursor-pointer transition-colors duration-150 border border-transparent hover:border-blue-300 group"
             >
               <div className="flex items-start gap-2">
-                <MessageCircle size={16} className="text-blue-500 flex-shrink-0 mt-0.5" />
+                <MessageCircle
+                  size={16}
+                  className="text-blue-500 flex-shrink-0 mt-0.5"
+                />
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-gray-800 truncate group-hover:text-blue-600">{chat.title}</p>
+                  <p className="text-sm font-medium text-gray-800 truncate group-hover:text-blue-600">
+                    {chat.title}
+                  </p>
                   <p className="text-xs text-gray-500 mt-0.5">{chat.date}</p>
                 </div>
               </div>
@@ -103,15 +154,15 @@ export default function Dashboard() {
           ))}
         </div>
 
-        {/* Profile Avatar */}
+        {/* ✅ PROFILE (NOW WORKING PERFECTLY) */}
         <div className="p-4 border-t border-blue-100 bg-white bg-opacity-50">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center text-white font-bold text-sm">
-              JD
+              {user.name?.charAt(0)?.toUpperCase()}
             </div>
             <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium text-gray-800">John Doe</p>
-              <p className="text-xs text-gray-500">john@example.com</p>
+              <p className="text-sm font-medium text-gray-800">{user.name}</p>
+              <p className="text-xs text-gray-500">{user.email}</p>
             </div>
           </div>
         </div>
@@ -125,7 +176,11 @@ export default function Dashboard() {
               onClick={() => setSidebarOpen(!sidebarOpen)}
               className="p-2 hover:bg-gray-100 rounded-lg transition-colors duration-150"
             >
-              {sidebarOpen ? <X size={20} className="text-gray-600" /> : <Menu size={20} className="text-gray-600" />}
+              {sidebarOpen ? (
+                <X size={20} className="text-gray-600" />
+              ) : (
+                <Menu size={20} className="text-gray-600" />
+              )}
             </button>
           </div>
 
@@ -136,11 +191,15 @@ export default function Dashboard() {
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
                 className={`pb-3 px-2 font-medium text-sm transition-colors duration-200 relative ${
-                  activeTab === tab.id ? "text-blue-600" : "text-gray-600 hover:text-gray-800"
+                  activeTab === tab.id
+                    ? "text-blue-600"
+                    : "text-gray-600 hover:text-gray-800"
                 }`}
               >
                 {tab.label}
-                {activeTab === tab.id && <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-blue-600"></div>}
+                {activeTab === tab.id && (
+                  <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-blue-600"></div>
+                )}
               </button>
             ))}
           </div>
@@ -149,7 +208,7 @@ export default function Dashboard() {
         {/* Content Container */}
         <div className="flex-1 overflow-hidden">
           {activeTab === "summary" && <SummaryAssistance />}
-          {activeTab === "future" && <FutureIntegration />}
+          {/* {activeTab === "future" && <FutureIntegration />} */}
           {activeTab === "chats" && <Chats />}
           {activeTab === "prompt" && <PromptGenerator />}
         </div>
